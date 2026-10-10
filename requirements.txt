@@ -1,0 +1,4 @@
+torch>=2.2.2
+chess>=1.10.0
+matplotlib>=3.7.1
+tqdm>=4.66.1

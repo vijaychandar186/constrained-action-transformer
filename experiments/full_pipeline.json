@@ -1,0 +1,28 @@
+{
+  "stages": [
+    {
+      "name": "pretrain",
+      "command": ["python", "-m", "src.train", "data/lichess_1800_2500.pgn"]
+    },
+    {
+      "name": "evaluate_pretrain",
+      "command": ["python", "-m", "src.evaluate", "--checkpoint", "runs/full/checkpoints/pretrain.pth"]
+    },
+    {
+      "name": "stockfish_baseline",
+      "command": ["python", "-m", "src.stockfish_baseline", "--output", "runs/full/stockfish_games.pgn"]
+    },
+    {
+      "name": "evaluate_stockfish_baseline",
+      "command": ["python", "-m", "src.evaluate", "--checkpoint", "runs/full/checkpoints/stockfish_baseline.pth"]
+    },
+    {
+      "name": "rl_posttrain",
+      "command": ["python", "-m", "src.rl_train", "--checkpoint", "runs/full/checkpoints/pretrain.pth"]
+    },
+    {
+      "name": "evaluate_rl",
+      "command": ["python", "-m", "src.evaluate", "--checkpoint", "runs/full/checkpoints/rl_posttrain.pth"]
+    }
+  ]
+}
