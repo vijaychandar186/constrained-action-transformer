@@ -1,0 +1,22 @@
+{
+  "description": "Measure the 24.9M model before authorizing a full token pass.",
+  "stages": [
+    {
+      "name": "profile",
+      "command": [
+        "python",
+        "-m",
+        "src.packed_train",
+        "--benchmark",
+        "--output",
+        "runs/large/profile.json",
+        "--max-hours",
+        "20"
+      ],
+      "artifacts": [
+        "runs/large/profile.json"
+      ],
+      "timeout_seconds": 600
+    }
+  ]
+}

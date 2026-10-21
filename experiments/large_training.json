@@ -1,0 +1,47 @@
+{
+  "description": "One fresh-token pass at 20 tokens per parameter, followed by held-out ACPL.",
+  "stages": [
+    {
+      "name": "train_large",
+      "command": [
+        "python",
+        "-m",
+        "src.packed_train",
+        "--data",
+        "data/large",
+        "--output",
+        "runs/large/checkpoints/pretrain.pth",
+        "--profile",
+        "runs/large/profile.json",
+        "--max-hours",
+        "20"
+      ],
+      "artifacts": [
+        "runs/large/checkpoints/pretrain.pth",
+        "runs/large/checkpoints/pretrain/metrics.json"
+      ],
+      "timeout_seconds": 72000
+    },
+    {
+      "name": "evaluate_large",
+      "command": [
+        "python",
+        "-m",
+        "src.evaluate",
+        "--checkpoint",
+        "runs/large/checkpoints/pretrain.pth",
+        "--positions",
+        "runs/full/checkpoints/pretrain/validation.pgn",
+        "--output",
+        "runs/large/acpl.json",
+        "--count",
+        "512",
+        "--require-cuda"
+      ],
+      "artifacts": [
+        "runs/large/acpl.json"
+      ],
+      "timeout_seconds": 1800
+    }
+  ]
+}

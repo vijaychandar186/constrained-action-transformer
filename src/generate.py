@@ -51,6 +51,8 @@ def generate_move(
 
     ctx_len = model.pos_emb.weight.shape[0]
     # Trim to context window
+    if hasattr(tokenizer, "context_ids"):
+        context_ids = tokenizer.context_ids([move.uci() for move in board.move_stack])
     ids = context_ids[-ctx_len:]
     idx = torch.tensor(ids, dtype=torch.long, device=device).unsqueeze(0)  # (1, seq)
 
@@ -175,10 +177,8 @@ if __name__ == "__main__":
     device     = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     tokenizer = ChessTokenizer()
-    model     = GPTModel(CHESS_GPT_CONFIG).to(device)
-
-    from src.model import GPTModel
-    model.load_state_dict(torch.load(ckpt_path, map_location=device, weights_only=True))
+    from src.pipeline import load_checkpoint
+    model, tokenizer, _ = load_checkpoint(ckpt_path, device)
     model.eval()
 
     play_game(model, tokenizer, device, model_plays=model_side)

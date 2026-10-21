@@ -1,0 +1,29 @@
+{
+  "description": "CPU-only preparation of fresh deduplicated training tokens.",
+  "stages": [
+    {
+      "name": "pack_data",
+      "command": [
+        "python",
+        "-m",
+        "src.packed_data",
+        "--source",
+        "https://database.lichess.org/standard/lichess_db_standard_rated_2026-04.pgn.zst",
+        "https://database.lichess.org/standard/lichess_db_standard_rated_2026-03.pgn.zst",
+        "https://database.lichess.org/standard/lichess_db_standard_rated_2026-02.pgn.zst",
+        "--output",
+        "data/large",
+        "--validation-pgn",
+        "runs/full/checkpoints/pretrain/validation.pgn",
+        "--target-tokens",
+        "497402880"
+      ],
+      "artifacts": [
+        "data/large/manifest.json",
+        "data/large/train.bin",
+        "data/large/validation.bin"
+      ],
+      "timeout_seconds": 86400
+    }
+  ]
+}

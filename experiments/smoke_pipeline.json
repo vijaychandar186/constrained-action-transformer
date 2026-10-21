@@ -1,0 +1,268 @@
+{
+  "description": "Local correctness check with tiny models; not a strength or production-training result.",
+  "stages": [
+    {
+      "name": "preflight",
+      "command": [
+        "python",
+        "-m",
+        "scripts.preflight",
+        "--output",
+        "runs/smoke/environment.json"
+      ],
+      "artifacts": [
+        "runs/smoke/environment.json"
+      ],
+      "timeout_seconds": 240
+    },
+    {
+      "name": "prepare_data",
+      "command": [
+        "python",
+        "-m",
+        "src.prepare_data",
+        "--source",
+        "runs/smoke/fixture.pgn",
+        "--output",
+        "runs/smoke/filtered.pgn",
+        "--max-games",
+        "20",
+        "--min-elo",
+        "1800",
+        "--max-elo",
+        "2500"
+      ],
+      "artifacts": [
+        "runs/smoke/filtered.pgn",
+        "runs/smoke/filtered.manifest.json"
+      ],
+      "timeout_seconds": 240
+    },
+    {
+      "name": "pretrain",
+      "command": [
+        "python",
+        "-m",
+        "src.train",
+        "runs/smoke/filtered.pgn",
+        "--output",
+        "runs/smoke/checkpoints/pretrain.pth",
+        "--epochs",
+        "1",
+        "--batch-size",
+        "2",
+        "--context-length",
+        "8",
+        "--emb-dim",
+        "32",
+        "--layers",
+        "1",
+        "--heads",
+        "4",
+        "--max-steps",
+        "2",
+        "--save-every",
+        "1",
+        "--resume"
+      ],
+      "artifacts": [
+        "runs/smoke/checkpoints/pretrain.pth",
+        "runs/smoke/checkpoints/pretrain/metrics.json",
+        "runs/smoke/checkpoints/pretrain/validation.pgn"
+      ],
+      "timeout_seconds": 240
+    },
+    {
+      "name": "evaluate_pretrain",
+      "command": [
+        "python",
+        "-m",
+        "src.evaluate",
+        "--checkpoint",
+        "runs/smoke/checkpoints/pretrain.pth",
+        "--positions",
+        "runs/smoke/checkpoints/pretrain/validation.pgn",
+        "--output",
+        "runs/smoke/pretrain_acpl.json",
+        "--count",
+        "4",
+        "--depth",
+        "1"
+      ],
+      "artifacts": [
+        "runs/smoke/pretrain_acpl.json"
+      ],
+      "timeout_seconds": 240
+    },
+    {
+      "name": "stockfish_games",
+      "command": [
+        "python",
+        "-m",
+        "src.stockfish_baseline",
+        "--output",
+        "runs/smoke/stockfish_games.pgn",
+        "--games",
+        "12",
+        "--depth",
+        "1",
+        "--max-plies",
+        "16"
+      ],
+      "artifacts": [
+        "runs/smoke/stockfish_games.pgn"
+      ],
+      "timeout_seconds": 240
+    },
+    {
+      "name": "train_stockfish_baseline",
+      "command": [
+        "python",
+        "-m",
+        "src.train",
+        "runs/smoke/stockfish_games.pgn",
+        "--output",
+        "runs/smoke/checkpoints/stockfish_baseline.pth",
+        "--epochs",
+        "1",
+        "--batch-size",
+        "2",
+        "--context-length",
+        "8",
+        "--emb-dim",
+        "32",
+        "--layers",
+        "1",
+        "--heads",
+        "4",
+        "--max-steps",
+        "2",
+        "--save-every",
+        "1",
+        "--resume"
+      ],
+      "artifacts": [
+        "runs/smoke/checkpoints/stockfish_baseline.pth"
+      ],
+      "timeout_seconds": 240
+    },
+    {
+      "name": "evaluate_stockfish_baseline",
+      "command": [
+        "python",
+        "-m",
+        "src.evaluate",
+        "--checkpoint",
+        "runs/smoke/checkpoints/stockfish_baseline.pth",
+        "--positions",
+        "runs/smoke/checkpoints/pretrain/validation.pgn",
+        "--output",
+        "runs/smoke/baseline_acpl.json",
+        "--count",
+        "4",
+        "--depth",
+        "1"
+      ],
+      "artifacts": [
+        "runs/smoke/baseline_acpl.json"
+      ],
+      "timeout_seconds": 240
+    },
+    {
+      "name": "rl_posttrain",
+      "command": [
+        "python",
+        "-m",
+        "src.rl_train",
+        "--checkpoint",
+        "runs/smoke/checkpoints/pretrain.pth",
+        "--positions",
+        "runs/smoke/checkpoints/pretrain/training.pgn",
+        "--output",
+        "runs/smoke/checkpoints/rl_posttrain.pth",
+        "--steps",
+        "2",
+        "--batch-size",
+        "2",
+        "--depth",
+        "1",
+        "--resume"
+      ],
+      "artifacts": [
+        "runs/smoke/checkpoints/rl_posttrain.pth"
+      ],
+      "timeout_seconds": 240
+    },
+    {
+      "name": "evaluate_rl",
+      "command": [
+        "python",
+        "-m",
+        "src.evaluate",
+        "--checkpoint",
+        "runs/smoke/checkpoints/rl_posttrain.pth",
+        "--positions",
+        "runs/smoke/checkpoints/pretrain/validation.pgn",
+        "--output",
+        "runs/smoke/rl_acpl.json",
+        "--count",
+        "4",
+        "--depth",
+        "1"
+      ],
+      "artifacts": [
+        "runs/smoke/rl_acpl.json"
+      ],
+      "timeout_seconds": 240
+    },
+    {
+      "name": "compare",
+      "command": [
+        "python",
+        "-m",
+        "src.compare",
+        "--rl",
+        "runs/smoke/checkpoints/rl_posttrain.pth",
+        "--baseline",
+        "runs/smoke/checkpoints/stockfish_baseline.pth",
+        "--positions",
+        "runs/smoke/checkpoints/pretrain/validation.pgn",
+        "--output",
+        "runs/smoke/comparison.json",
+        "--acpl",
+        "runs/smoke/pretrain_acpl.json",
+        "runs/smoke/baseline_acpl.json",
+        "runs/smoke/rl_acpl.json",
+        "--pairs",
+        "1",
+        "--max-plies",
+        "8"
+      ],
+      "artifacts": [
+        "runs/smoke/comparison.json",
+        "runs/smoke/comparison.pgn"
+      ],
+      "timeout_seconds": 240
+    },
+    {
+      "name": "benchmark_pytorch",
+      "command": [
+        "python",
+        "-m",
+        "src.benchmark",
+        "--checkpoint",
+        "runs/smoke/checkpoints/rl_posttrain.pth",
+        "--positions",
+        "runs/smoke/checkpoints/pretrain/validation.pgn",
+        "--output",
+        "runs/smoke/pytorch_benchmark.json",
+        "--count",
+        "4"
+      ],
+      "artifacts": [
+        "runs/smoke/pytorch_benchmark.json"
+      ],
+      "timeout_seconds": 240
+    }
+  ]
+}

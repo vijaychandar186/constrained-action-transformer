@@ -19,10 +19,11 @@ import torch.nn as nn
 # ---------------------------------------------------------------------------
 
 class MultiHeadAttention(nn.Module):
-    def __init__(self, d_in, d_out, context_length, dropout, num_heads, qkv_bias=False):
+    def __init__(self, d_in, d_out, context_length, dropout, num_heads, qkv_bias=False, use_sdpa=False):
         super().__init__()
         assert d_out % num_heads == 0, "d_out must be divisible by num_heads"
 
+        self.use_sdpa = use_sdpa
         self.d_out     = d_out
         self.num_heads = num_heads
         self.head_dim  = d_out // num_heads
@@ -51,6 +52,13 @@ class MultiHeadAttention(nn.Module):
         keys    = keys.transpose(1, 2)
         queries = queries.transpose(1, 2)
         values  = values.transpose(1, 2)
+
+        if self.use_sdpa:
+            context = torch.nn.functional.scaled_dot_product_attention(
+                queries, keys, values, is_causal=True,
+                dropout_p=self.dropout.p if self.training else 0.0)
+            context = context.transpose(1, 2).contiguous().view(b, num_tokens, self.d_out)
+            return self.out_proj(context)
 
         attn_scores = queries @ keys.transpose(2, 3)
 
@@ -116,6 +124,7 @@ class TransformerBlock(nn.Module):
             num_heads=cfg["n_heads"],
             dropout=cfg["drop_rate"],
             qkv_bias=cfg["qkv_bias"],
+            use_sdpa=cfg.get("sdpa", False),
         )
         self.ff          = FeedForward(cfg)
         self.norm1       = LayerNorm(cfg["emb_dim"])

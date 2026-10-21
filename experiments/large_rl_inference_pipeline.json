@@ -1,0 +1,90 @@
+{
+  "description": "Repeat RL comparison with training dropout disabled for inference.",
+  "stages": [
+    {
+      "name": "evaluate_reference",
+      "command": [
+        "python",
+        "-m",
+        "src.evaluate",
+        "--checkpoint",
+        "runs/large/checkpoints/pretrain.pth",
+        "--positions",
+        "runs/full/checkpoints/pretrain/validation.pgn",
+        "--output",
+        "runs/large_rl_inference/reference_acpl.json",
+        "--count",
+        "512",
+        "--depth",
+        "8",
+        "--seed",
+        "42",
+        "--require-cuda"
+      ],
+      "artifacts": [
+        "runs/large_rl_inference/reference_acpl.json"
+      ],
+      "timeout_seconds": 900
+    },
+    {
+      "name": "evaluate_rl",
+      "command": [
+        "python",
+        "-m",
+        "src.evaluate",
+        "--checkpoint",
+        "runs/large_rl/checkpoints/rl.pth",
+        "--positions",
+        "runs/full/checkpoints/pretrain/validation.pgn",
+        "--output",
+        "runs/large_rl_inference/rl_acpl.json",
+        "--count",
+        "512",
+        "--depth",
+        "8",
+        "--seed",
+        "42",
+        "--require-cuda"
+      ],
+      "artifacts": [
+        "runs/large_rl_inference/rl_acpl.json"
+      ],
+      "timeout_seconds": 900
+    },
+    {
+      "name": "rl_vs_reference",
+      "command": [
+        "python",
+        "-m",
+        "src.compare",
+        "--candidate",
+        "runs/large_rl/checkpoints/rl.pth",
+        "--candidate-name",
+        "Large + Stockfish RL",
+        "--baseline",
+        "runs/large/checkpoints/pretrain.pth",
+        "--baseline-name",
+        "Large supervised reference",
+        "--positions",
+        "runs/full/checkpoints/pretrain/validation.pgn",
+        "--output",
+        "runs/large_rl_inference/matches.json",
+        "--pairs",
+        "50",
+        "--max-plies",
+        "200",
+        "--seed",
+        "123",
+        "--acpl",
+        "runs/large_rl_inference/reference_acpl.json",
+        "runs/large_rl_inference/rl_acpl.json",
+        "--require-cuda"
+      ],
+      "artifacts": [
+        "runs/large_rl_inference/matches.json",
+        "runs/large_rl_inference/matches.pgn"
+      ],
+      "timeout_seconds": 1800
+    }
+  ]
+}

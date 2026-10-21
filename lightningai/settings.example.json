@@ -1,0 +1,9 @@
+{
+  "studio": "queens-gambit",
+  "machine": "T4_SMALL",
+  "max_runtime_seconds": 10800,
+  "remote_dir": "queens-gambit",
+  "plan": "experiments/full_pipeline.json",
+  "run_dir": "runs/full",
+  "execution": "studio"
+}

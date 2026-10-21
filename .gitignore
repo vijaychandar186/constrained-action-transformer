@@ -3,6 +3,7 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .mypy_cache/
+.test-tmp-*/
 
 # Generated training outputs
 checkpoints/
@@ -16,3 +17,19 @@ venv/
 .ipynb_checkpoints/
 
 .env
+# Local tools, downloaded data and Lightning run metadata
+.tools/
+data/*.pgn
+data/*.zst
+data/*.manifest.json
+lightningai/launch.json
+lightningai/package.zip
+lightningai/*.zip
+lightningai/settings.json
+lightningai/*_launch.json
+
+data/large/
+lightningai/large_launch.json
+lightningai/comparison_launch.json
+lightningai/large_rl_launch.json
+lightningai/serving.json

@@ -1,0 +1,44 @@
+{
+  "description": "GPU validation of the optional TensorRT-LLM AutoDeploy backend; requires requirements-serving.txt and tensorrt_llm installed separately.",
+  "stages": [
+    {
+      "name": "export_hf",
+      "command": [
+        "python",
+        "-m",
+        "src.export_hf",
+        "--checkpoint",
+        "runs/full/checkpoints/rl_posttrain.pth",
+        "--output",
+        "runs/full/hf_model"
+      ],
+      "artifacts": [
+        "runs/full/hf_model/chess_metadata.json"
+      ],
+      "timeout_seconds": 600
+    },
+    {
+      "name": "benchmark_both",
+      "command": [
+        "python",
+        "-m",
+        "src.benchmark",
+        "--checkpoint",
+        "runs/full/checkpoints/rl_posttrain.pth",
+        "--positions",
+        "runs/full/checkpoints/pretrain/validation.pgn",
+        "--output",
+        "runs/full/serving_benchmark.json",
+        "--backend",
+        "both",
+        "--hf-model",
+        "runs/full/hf_model",
+        "--require-cuda"
+      ],
+      "artifacts": [
+        "runs/full/serving_benchmark.json"
+      ],
+      "timeout_seconds": 1800
+    }
+  ]
+}

@@ -1,0 +1,90 @@
+{
+  "description": "Identical 512-position ACPL protocol plus 100 color-swapped matches between the large and small pretrained models.",
+  "stages": [
+    {
+      "name": "evaluate_small",
+      "command": [
+        "python",
+        "-m",
+        "src.evaluate",
+        "--checkpoint",
+        "runs/full/checkpoints/pretrain.pth",
+        "--positions",
+        "runs/full/checkpoints/pretrain/validation.pgn",
+        "--output",
+        "runs/comparison/small_acpl.json",
+        "--count",
+        "512",
+        "--depth",
+        "8",
+        "--seed",
+        "42",
+        "--require-cuda"
+      ],
+      "artifacts": [
+        "runs/comparison/small_acpl.json"
+      ],
+      "timeout_seconds": 1200
+    },
+    {
+      "name": "evaluate_large",
+      "command": [
+        "python",
+        "-m",
+        "src.evaluate",
+        "--checkpoint",
+        "runs/large/checkpoints/pretrain.pth",
+        "--positions",
+        "runs/full/checkpoints/pretrain/validation.pgn",
+        "--output",
+        "runs/comparison/large_acpl.json",
+        "--count",
+        "512",
+        "--depth",
+        "8",
+        "--seed",
+        "42",
+        "--require-cuda"
+      ],
+      "artifacts": [
+        "runs/comparison/large_acpl.json"
+      ],
+      "timeout_seconds": 1200
+    },
+    {
+      "name": "paired_matches",
+      "command": [
+        "python",
+        "-m",
+        "src.compare",
+        "--candidate",
+        "runs/large/checkpoints/pretrain.pth",
+        "--candidate-name",
+        "Large 24.9M",
+        "--baseline",
+        "runs/full/checkpoints/pretrain.pth",
+        "--baseline-name",
+        "Small 7.1M",
+        "--positions",
+        "runs/full/checkpoints/pretrain/validation.pgn",
+        "--output",
+        "runs/comparison/matches.json",
+        "--pairs",
+        "50",
+        "--max-plies",
+        "200",
+        "--seed",
+        "123",
+        "--acpl",
+        "runs/comparison/small_acpl.json",
+        "runs/comparison/large_acpl.json",
+        "--require-cuda"
+      ],
+      "artifacts": [
+        "runs/comparison/matches.json",
+        "runs/comparison/matches.pgn"
+      ],
+      "timeout_seconds": 3600
+    }
+  ]
+}

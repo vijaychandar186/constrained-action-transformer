@@ -1,28 +1,235 @@
 {
+  "description": "Sequential bounded initial experiment; all checkpoints evaluated on the same held-out Lichess games.",
   "stages": [
     {
+      "name": "preflight",
+      "command": [
+        "python",
+        "-m",
+        "scripts.preflight",
+        "--output",
+        "runs/full/environment.json",
+        "--require-cuda"
+      ],
+      "artifacts": [
+        "runs/full/environment.json"
+      ],
+      "timeout_seconds": 120
+    },
+    {
+      "name": "prepare_data",
+      "command": [
+        "python",
+        "-m",
+        "src.prepare_data",
+        "--source",
+        "https://database.lichess.org/standard/lichess_db_standard_rated_2026-04.pgn.zst",
+        "--output",
+        "data/lichess_1800_2500.pgn",
+        "--max-games",
+        "20000",
+        "--min-elo",
+        "1800",
+        "--max-elo",
+        "2500"
+      ],
+      "artifacts": [
+        "data/lichess_1800_2500.pgn",
+        "data/lichess_1800_2500.manifest.json"
+      ],
+      "timeout_seconds": 1800
+    },
+    {
       "name": "pretrain",
-      "command": ["python", "-m", "src.train", "data/lichess_1800_2500.pgn"]
+      "command": [
+        "python",
+        "-m",
+        "src.train",
+        "data/lichess_1800_2500.pgn",
+        "--output",
+        "runs/full/checkpoints/pretrain.pth",
+        "--epochs",
+        "3",
+        "--batch-size",
+        "32",
+        "--min-elo",
+        "1800",
+        "--max-elo",
+        "2500",
+        "--require-cuda",
+        "--resume"
+      ],
+      "artifacts": [
+        "runs/full/checkpoints/pretrain.pth",
+        "runs/full/checkpoints/pretrain/metrics.json",
+        "runs/full/checkpoints/pretrain/validation.pgn"
+      ],
+      "timeout_seconds": 5400
     },
     {
       "name": "evaluate_pretrain",
-      "command": ["python", "-m", "src.evaluate", "--checkpoint", "runs/full/checkpoints/pretrain.pth"]
+      "command": [
+        "python",
+        "-m",
+        "src.evaluate",
+        "--checkpoint",
+        "runs/full/checkpoints/pretrain.pth",
+        "--positions",
+        "runs/full/checkpoints/pretrain/validation.pgn",
+        "--output",
+        "runs/full/pretrain_acpl.json",
+        "--require-cuda"
+      ],
+      "artifacts": [
+        "runs/full/pretrain_acpl.json"
+      ],
+      "timeout_seconds": 1800
     },
     {
-      "name": "stockfish_baseline",
-      "command": ["python", "-m", "src.stockfish_baseline", "--output", "runs/full/stockfish_games.pgn"]
+      "name": "stockfish_games",
+      "command": [
+        "python",
+        "-m",
+        "src.stockfish_baseline",
+        "--output",
+        "runs/full/stockfish_games.pgn",
+        "--games",
+        "512",
+        "--depth",
+        "6",
+        "--max-plies",
+        "160"
+      ],
+      "artifacts": [
+        "runs/full/stockfish_games.pgn"
+      ],
+      "timeout_seconds": 3600
+    },
+    {
+      "name": "train_stockfish_baseline",
+      "command": [
+        "python",
+        "-m",
+        "src.train",
+        "runs/full/stockfish_games.pgn",
+        "--output",
+        "runs/full/checkpoints/stockfish_baseline.pth",
+        "--epochs",
+        "3",
+        "--require-cuda",
+        "--resume"
+      ],
+      "artifacts": [
+        "runs/full/checkpoints/stockfish_baseline.pth"
+      ],
+      "timeout_seconds": 1800
     },
     {
       "name": "evaluate_stockfish_baseline",
-      "command": ["python", "-m", "src.evaluate", "--checkpoint", "runs/full/checkpoints/stockfish_baseline.pth"]
+      "command": [
+        "python",
+        "-m",
+        "src.evaluate",
+        "--checkpoint",
+        "runs/full/checkpoints/stockfish_baseline.pth",
+        "--positions",
+        "runs/full/checkpoints/pretrain/validation.pgn",
+        "--output",
+        "runs/full/baseline_acpl.json",
+        "--require-cuda"
+      ],
+      "artifacts": [
+        "runs/full/baseline_acpl.json"
+      ],
+      "timeout_seconds": 1800
     },
     {
       "name": "rl_posttrain",
-      "command": ["python", "-m", "src.rl_train", "--checkpoint", "runs/full/checkpoints/pretrain.pth"]
+      "command": [
+        "python",
+        "-m",
+        "src.rl_train",
+        "--checkpoint",
+        "runs/full/checkpoints/pretrain.pth",
+        "--positions",
+        "runs/full/checkpoints/pretrain/training.pgn",
+        "--output",
+        "runs/full/checkpoints/rl_posttrain.pth",
+        "--steps",
+        "128",
+        "--batch-size",
+        "8",
+        "--require-cuda",
+        "--resume"
+      ],
+      "artifacts": [
+        "runs/full/checkpoints/rl_posttrain.pth"
+      ],
+      "timeout_seconds": 3600
     },
     {
       "name": "evaluate_rl",
-      "command": ["python", "-m", "src.evaluate", "--checkpoint", "runs/full/checkpoints/rl_posttrain.pth"]
+      "command": [
+        "python",
+        "-m",
+        "src.evaluate",
+        "--checkpoint",
+        "runs/full/checkpoints/rl_posttrain.pth",
+        "--positions",
+        "runs/full/checkpoints/pretrain/validation.pgn",
+        "--output",
+        "runs/full/rl_acpl.json",
+        "--require-cuda"
+      ],
+      "artifacts": [
+        "runs/full/rl_acpl.json"
+      ],
+      "timeout_seconds": 1800
+    },
+    {
+      "name": "compare",
+      "command": [
+        "python",
+        "-m",
+        "src.compare",
+        "--rl",
+        "runs/full/checkpoints/rl_posttrain.pth",
+        "--baseline",
+        "runs/full/checkpoints/stockfish_baseline.pth",
+        "--positions",
+        "runs/full/checkpoints/pretrain/validation.pgn",
+        "--output",
+        "runs/full/comparison.json",
+        "--acpl",
+        "runs/full/pretrain_acpl.json",
+        "runs/full/baseline_acpl.json",
+        "runs/full/rl_acpl.json",
+        "--require-cuda"
+      ],
+      "artifacts": [
+        "runs/full/comparison.json",
+        "runs/full/comparison.pgn"
+      ],
+      "timeout_seconds": 1800
+    },
+    {
+      "name": "benchmark_pytorch",
+      "command": [
+        "python",
+        "-m",
+        "src.benchmark",
+        "--checkpoint",
+        "runs/full/checkpoints/rl_posttrain.pth",
+        "--positions",
+        "runs/full/checkpoints/pretrain/validation.pgn",
+        "--output",
+        "runs/full/pytorch_benchmark.json",
+        "--require-cuda"
+      ],
+      "artifacts": [
+        "runs/full/pytorch_benchmark.json"
+      ],
+      "timeout_seconds": 600
     }
   ]
 }

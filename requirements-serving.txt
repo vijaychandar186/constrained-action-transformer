@@ -1,0 +1,4 @@
+-r requirements.txt
+transformers>=4.46,<5
+tokenizers>=0.20
+# Install TensorRT-LLM separately in a supported Linux/CUDA environment.

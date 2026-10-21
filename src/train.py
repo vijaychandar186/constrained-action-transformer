@@ -128,65 +128,8 @@ def plot_losses(epochs_seen, tokens_seen, train_losses, val_losses, save_path="l
 # ---------------------------------------------------------------------------
 
 def main():
-    import sys
-    from config import CHESS_GPT_CONFIG, TRAIN_SETTINGS
-
-    if len(sys.argv) < 2:
-        print("Usage: python -m src.train <path/to/games.pgn> [more.pgn ...]")
-        print("  Download PGN files from https://database.lichess.org/")
-        sys.exit(1)
-
-    pgn_paths = sys.argv[1:]
-    device    = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Device: {device}")
-
-    torch.manual_seed(42)
-
-    tokenizer = ChessTokenizer()
-    print(f"Vocab size: {tokenizer.vocab_size}")
-    tokenizer.save("data/vocab.txt")
-
-    # Load + tokenize games
-    all_ids  = load_data(
-        pgn_paths, tokenizer,
-        max_games=TRAIN_SETTINGS.get("max_games"),
-        min_elo=TRAIN_SETTINGS.get("min_elo", 0),
-    )
-    split    = int(0.9 * len(all_ids))
-    train_ids = all_ids[:split]
-    val_ids   = all_ids[split:]
-    print(f"Train tokens: {len(train_ids):,}  |  Val tokens: {len(val_ids):,}")
-
-    ctx = CHESS_GPT_CONFIG["context_length"]
-    train_loader = create_chess_dataloader(
-        train_ids, context_length=ctx, stride=ctx,
-        batch_size=TRAIN_SETTINGS["batch_size"], shuffle=True, drop_last=True,
-    )
-    val_loader = create_chess_dataloader(
-        val_ids, context_length=ctx, stride=ctx,
-        batch_size=TRAIN_SETTINGS["batch_size"], shuffle=False, drop_last=False,
-    )
-
-    model = GPTModel(CHESS_GPT_CONFIG).to(device)
-    total_params = sum(p.numel() for p in model.parameters())
-    print(f"Model parameters: {total_params:,}")
-
-    optimizer = torch.optim.AdamW(
-        model.parameters(),
-        lr=TRAIN_SETTINGS["learning_rate"],
-        weight_decay=TRAIN_SETTINGS["weight_decay"],
-    )
-
-    train_losses, val_losses, tokens_seen = train_model(
-        model, train_loader, val_loader, optimizer, device,
-        num_epochs=TRAIN_SETTINGS["num_epochs"],
-        eval_freq=TRAIN_SETTINGS["eval_freq"],
-        eval_iter=TRAIN_SETTINGS["eval_iter"],
-        tokenizer=tokenizer,
-    )
-
-    epochs_tensor = torch.linspace(0, TRAIN_SETTINGS["num_epochs"], len(train_losses))
-    plot_losses(epochs_tensor, tokens_seen, train_losses, val_losses)
+    from src.supervised import main as run
+    run()
 
 
 if __name__ == "__main__":

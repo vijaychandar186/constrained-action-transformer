@@ -1,0 +1,288 @@
+{
+  "description": "Follow-up experiments on common held-out positions after the full pipeline.",
+  "stages": [
+    {
+      "name": "prepare_all",
+      "command": [
+        "python",
+        "-m",
+        "src.prepare_data",
+        "--source",
+        "https://database.lichess.org/standard/lichess_db_standard_rated_2026-04.pgn.zst",
+        "--output",
+        "data/lichess_all.pgn",
+        "--max-games",
+        "20000",
+        "--min-elo",
+        "0",
+        "--max-elo",
+        "4000",
+        "--exclude-pgn",
+        "runs/full/checkpoints/pretrain/validation.pgn"
+      ],
+      "artifacts": [
+        "data/lichess_all.pgn"
+      ],
+      "timeout_seconds": 3600
+    },
+    {
+      "name": "train_all",
+      "command": [
+        "python",
+        "-m",
+        "src.train",
+        "data/lichess_all.pgn",
+        "--output",
+        "runs/research/all.pth",
+        "--validation-pgn",
+        "runs/full/checkpoints/pretrain/validation.pgn",
+        "--epochs",
+        "3",
+        "--require-cuda",
+        "--resume"
+      ],
+      "artifacts": [
+        "runs/research/all.pth"
+      ],
+      "timeout_seconds": 5400
+    },
+    {
+      "name": "evaluate_all",
+      "command": [
+        "python",
+        "-m",
+        "src.evaluate",
+        "--checkpoint",
+        "runs/research/all.pth",
+        "--positions",
+        "runs/full/checkpoints/pretrain/validation.pgn",
+        "--output",
+        "runs/research/all_acpl.json",
+        "--require-cuda"
+      ],
+      "artifacts": [
+        "runs/research/all_acpl.json"
+      ],
+      "timeout_seconds": 1800
+    },
+    {
+      "name": "prepare_2000plus",
+      "command": [
+        "python",
+        "-m",
+        "src.prepare_data",
+        "--source",
+        "https://database.lichess.org/standard/lichess_db_standard_rated_2026-04.pgn.zst",
+        "--output",
+        "data/lichess_2000plus.pgn",
+        "--max-games",
+        "20000",
+        "--min-elo",
+        "2000",
+        "--max-elo",
+        "4000",
+        "--exclude-pgn",
+        "runs/full/checkpoints/pretrain/validation.pgn"
+      ],
+      "artifacts": [
+        "data/lichess_2000plus.pgn"
+      ],
+      "timeout_seconds": 3600
+    },
+    {
+      "name": "train_2000plus",
+      "command": [
+        "python",
+        "-m",
+        "src.train",
+        "data/lichess_2000plus.pgn",
+        "--output",
+        "runs/research/2000plus.pth",
+        "--validation-pgn",
+        "runs/full/checkpoints/pretrain/validation.pgn",
+        "--epochs",
+        "3",
+        "--require-cuda",
+        "--resume"
+      ],
+      "artifacts": [
+        "runs/research/2000plus.pth"
+      ],
+      "timeout_seconds": 5400
+    },
+    {
+      "name": "evaluate_2000plus",
+      "command": [
+        "python",
+        "-m",
+        "src.evaluate",
+        "--checkpoint",
+        "runs/research/2000plus.pth",
+        "--positions",
+        "runs/full/checkpoints/pretrain/validation.pgn",
+        "--output",
+        "runs/research/2000plus_acpl.json",
+        "--require-cuda"
+      ],
+      "artifacts": [
+        "runs/research/2000plus_acpl.json"
+      ],
+      "timeout_seconds": 1800
+    },
+    {
+      "name": "prepare_2500plus",
+      "command": [
+        "python",
+        "-m",
+        "src.prepare_data",
+        "--source",
+        "https://database.lichess.org/standard/lichess_db_standard_rated_2026-04.pgn.zst",
+        "--output",
+        "data/lichess_2500plus.pgn",
+        "--max-games",
+        "20000",
+        "--min-elo",
+        "2500",
+        "--max-elo",
+        "4000",
+        "--exclude-pgn",
+        "runs/full/checkpoints/pretrain/validation.pgn"
+      ],
+      "artifacts": [
+        "data/lichess_2500plus.pgn"
+      ],
+      "timeout_seconds": 3600
+    },
+    {
+      "name": "train_2500plus",
+      "command": [
+        "python",
+        "-m",
+        "src.train",
+        "data/lichess_2500plus.pgn",
+        "--output",
+        "runs/research/2500plus.pth",
+        "--validation-pgn",
+        "runs/full/checkpoints/pretrain/validation.pgn",
+        "--epochs",
+        "3",
+        "--require-cuda",
+        "--resume"
+      ],
+      "artifacts": [
+        "runs/research/2500plus.pth"
+      ],
+      "timeout_seconds": 5400
+    },
+    {
+      "name": "evaluate_2500plus",
+      "command": [
+        "python",
+        "-m",
+        "src.evaluate",
+        "--checkpoint",
+        "runs/research/2500plus.pth",
+        "--positions",
+        "runs/full/checkpoints/pretrain/validation.pgn",
+        "--output",
+        "runs/research/2500plus_acpl.json",
+        "--require-cuda"
+      ],
+      "artifacts": [
+        "runs/research/2500plus_acpl.json"
+      ],
+      "timeout_seconds": 1800
+    },
+    {
+      "name": "train_boardstate",
+      "command": [
+        "python",
+        "-m",
+        "src.train",
+        "runs/full/checkpoints/pretrain/training.pgn",
+        "--output",
+        "runs/research/boardstate.pth",
+        "--validation-pgn",
+        "runs/full/checkpoints/pretrain/validation.pgn",
+        "--epochs",
+        "3",
+        "--require-cuda",
+        "--resume",
+        "--board-state",
+        "--context-length",
+        "512",
+        "--max-games",
+        "1000"
+      ],
+      "artifacts": [
+        "runs/research/boardstate.pth"
+      ],
+      "timeout_seconds": 5400
+    },
+    {
+      "name": "evaluate_boardstate",
+      "command": [
+        "python",
+        "-m",
+        "src.evaluate",
+        "--checkpoint",
+        "runs/research/boardstate.pth",
+        "--positions",
+        "runs/full/checkpoints/pretrain/validation.pgn",
+        "--output",
+        "runs/research/boardstate_acpl.json",
+        "--require-cuda"
+      ],
+      "artifacts": [
+        "runs/research/boardstate_acpl.json"
+      ],
+      "timeout_seconds": 1800
+    },
+    {
+      "name": "train_larger",
+      "command": [
+        "python",
+        "-m",
+        "src.train",
+        "runs/full/checkpoints/pretrain/training.pgn",
+        "--output",
+        "runs/research/larger.pth",
+        "--validation-pgn",
+        "runs/full/checkpoints/pretrain/validation.pgn",
+        "--epochs",
+        "3",
+        "--require-cuda",
+        "--resume",
+        "--emb-dim",
+        "384",
+        "--layers",
+        "8",
+        "--context-length",
+        "256"
+      ],
+      "artifacts": [
+        "runs/research/larger.pth"
+      ],
+      "timeout_seconds": 5400
+    },
+    {
+      "name": "evaluate_larger",
+      "command": [
+        "python",
+        "-m",
+        "src.evaluate",
+        "--checkpoint",
+        "runs/research/larger.pth",
+        "--positions",
+        "runs/full/checkpoints/pretrain/validation.pgn",
+        "--output",
+        "runs/research/larger_acpl.json",
+        "--require-cuda"
+      ],
+      "artifacts": [
+        "runs/research/larger_acpl.json"
+      ],
+      "timeout_seconds": 1800
+    }
+  ]
+}

@@ -1,4 +1,6 @@
-torch>=2.2.2
+torch>=2.3
 chess>=1.10.0
 matplotlib>=3.7.1
 tqdm>=4.66.1
+zstandard>=0.23
+numpy>=1.26

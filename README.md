@@ -200,3 +200,177 @@ notebooks/
 config.py       — model and training settings
 TODO.md         — planned and unverified work
 ```
+
+
+## Sequential experiment pipeline
+
+experiments/full_pipeline.json runs one stage at a time: prerequisite checks,
+Lichess sampling, supervised training and evaluation, Stockfish self-play,
+baseline training and evaluation, RL, RL evaluation, paired matches, and a
+PyTorch benchmark.
+
+The initial run uses 20,000 games with both players rated 1800?2500, three
+supervised epochs, a 512-game Stockfish baseline, and 128 RL updates. These are
+bounded initial settings, not completed research results. Sampling streams
+the April 2026 Lichess archive and stops at the game limit. The dataset manifest
+records the source, filter, count, and SHA256.
+
+Training splits complete games before making token windows. Checkpoints include
+model configuration, vocabulary, optimizer/scheduler state, random state,
+dataset manifest, and progress. Validation PGNs, configuration, and metrics
+are saved beside each checkpoint. Queue status and per-stage logs live in
+the run directory.
+
+ACPL uses the same held-out PGN, position sample, engine version, depth, and
+decoding rule for every policy. Matches pair starting positions and exchange
+colors. The report identifies games adjudicated as draws at the ply limit.
+These limited protocols do not provide a calibrated playing ELO.
+
+RL uses a bounded Stockfish-regret reward, -CPL / (100 + CPL), with a
+leave-one-out batch baseline. It penalizes exact KL divergence over legal moves
+against the frozen supervised policy, clips gradients, and stops updates at
+the KL threshold. RL receives the training split; evaluation uses held-out games.
+
+### Lightning AI
+
+Provider initialization, packaging, launch, and status inspection live in
+lightningai/. The API key stays in the root .env and is excluded from uploads.
+HTTP debug logging is disabled before authentication.
+
+Copy `lightningai/settings.example.json` to `lightningai/settings.json` and
+fill in your Studio/teamspace details; the local settings file is ignored by Git.
+
+~~~powershell
+.\.venv\Scripts\python.exe -m pip install -r lightningai\requirements.txt
+.\.venv\Scripts\python.exe -m lightningai.config
+~~~
+
+If there are multiple teamspaces, set teamspace to owner/teamspace in
+lightningai/settings.json. For a bare name, specify org or user alongside it.
+The key must permit teamspace access and Studio/job operations.
+
+~~~powershell
+.\.venv\Scripts\python.exe -m lightningai.launch --dry-run
+.\.venv\Scripts\python.exe -m lightningai.launch
+~~~
+
+The default launcher prepares a dedicated CPU Studio and switches it to T4_SMALL
+for the sequential queue. GNU timeout bounds the queue process to three hours.
+The Studio-native runner stops compute on success, failure, or timeout; this
+shutdown path was verified on CPU before GPU launch. Artifacts remain in the
+Studio filesystem. Machine, runtime, plan, and output directory are configurable
+in settings.json. A failed stage stops the queue, and saved stages support resume.
+An optional execution=job mode is available for accounts permitting the Jobs API.
+For separate Jobs, prior outputs must be restored before resume.
+
+A 403 when accessing a teamspace must be resolved before launch. This account
+permits Studio operations but rejects Jobs API submission, so the configured
+execution mode is studio. Local
+lightningai/launch.json records either the blocked reason or the submitted Studio/job details.
+The initial T4_SMALL queue completed all 11 stages and shut down automatically.
+Checkpoints and reports are retained locally under runs/full/; see [RESULTS.md](RESULTS.md). The same
+organization rejected L4 with a payment-verification error; that error does
+not apply to the successful T4 request.
+
+References: [Lightning SDK](https://lightning.ai/docs/platform/developers/sdk),
+[Jobs](https://lightning.ai/docs/cli/stable/command-details/job),
+[Lichess database](https://database.lichess.org/).
+
+### Local checks and follow-up experiments
+
+~~~powershell
+.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+.\.venv\Scripts\python.exe -m pytest -q
+.\.venv\Scripts\python.exe scripts\run_experiment_queue.py --plan experiments\full_pipeline.json --run-dir runs\full --dry-run
+~~~
+
+Install Stockfish and set STOCKFISH_PATH if it is not on PATH. The smoke plan
+uses a small fixture at runs/smoke/fixture.pgn, tiny models, shallow engine
+analysis, and a few updates. Its results verify functionality, not strength.
+
+experiments/research_pipeline.json defines the ELO comparison, board-state
+model, and larger-model follow-up after the full pipeline. It shares held-out
+games and excludes those games from downloaded training samples. Board-state
+training computes loss only on moves and uses AMP when CUDA is available.
+
+### Serving
+
+python -m src.serve --checkpoint <checkpoint> --port 8000 exposes a local
+POST /move endpoint. Send {"moves": ["e2e4", "e7e5"]}; it returns a legal UCI move.
+The request must supply move history because it is part of the model input.
+
+experiments/serving_pipeline.json exports the checkpoint to Hugging Face GPT-2,
+verifies its logits against the original, and benchmarks PyTorch and an optional
+TensorRT-LLM AutoDeploy adapter on identical positions. The adapter masks illegal
+tokens before generating exactly one move. Failures have no silent fallback.
+
+Install requirements-serving.txt and a compatible TensorRT-LLM build in a
+supported Linux/CUDA environment before using this plan. Current TensorRT-LLM
+releases support Ampere-or-newer NVIDIA architectures; the laptop GTX 1650 Ti
+cannot perform this validation. GPU compatibility,
+latency, throughput, and memory require validation on the target hardware.
+The current native TensorRT-LLM support list does not include GPT-2. AutoDeploy
+is a candidate path, not a verified speedup. The legacy engine-build CLI is no
+longer the current workflow.
+
+References: [supported models](https://nvidia.github.io/TensorRT-LLM/latest/models/supported-models.html),
+[AutoDeploy](https://github.com/NVIDIA/TensorRT-LLM/blob/main/docs/source/features/auto_deploy/auto-deploy.md),
+[backend migration](https://nvidia.github.io/TensorRT-LLM/latest/legacy/tensorrt-backend-removal.html).
+
+### Larger token-budgeted run
+
+The larger model has 24,870,144 parameters (12 layers, width 384, 8 heads).
+Its one-pass target is 497,402,880 fresh training tokens, approximately 20 per
+parameter. The CPU preparation step filters 1800-2500 rated standard games,
+deduplicates move sequences, and excludes the existing 2,000 validation games.
+Little-endian uint16 token files use about 1 GB for the training token budget;
+memory-mapped nonoverlapping target windows avoid keeping PGN trees in RAM.
+
+The completed run is retained locally as a checkpoint and report. The 20:1
+token-to-parameter ratio was a planning heuristic, not a validated chess
+optimum.
+
+The controlled large-versus-small comparison is documented in
+[COMPARISON.md](COMPARISON.md). The large model scored 47 wins, 53 draws,
+and 0 losses in 100 color-swapped continuation games, with 33.2% lower
+ACPL on identical sampled positions. These results do not measure absolute Elo.
+
+### Large-model Stockfish feedback
+
+`experiments/large_rl_pipeline.json` samples 4,096 positions from the verified
+packed training stream, whose complete games exclude the held-out validation
+games. The initial post-training run uses up to 512 updates, four positions
+per update, and four independently sampled legal moves per position. Rewards
+are `-CPL/(100+CPL)` from Stockfish 16 at depth 8. Within-position
+leave-one-out reward baselines and a frozen-reference KL penalty constrain
+the updates; mean KL above 0.1 stops training before the next update.
+
+The queue evaluated the RL and supervised checkpoints on identical
+512-position samples and played 100 continuation games with colors swapped.
+This is engine-feedback RL, not human-preference RLHF. The completed reports
+are retained locally.
+
+### Play in a browser
+
+The chess.js 1.4.0 UI and model API are served together by `src.chess_web`.
+The app supports White or Black, original or Stockfish-RL opponents, legal
+move highlighting, castling, promotion choices, undo, board flipping, and
+checkmate/draw detection. chess.js is vendored with its MIT license so the
+page does not depend on a browser CDN. The backend validates every history
+and masks model outputs to legal moves. Checkpoint loading disables dropout
+for inference.
+
+Run locally:
+
+```powershell
+.\.venv\Scripts\python.exe -m src.chess_web --original runs/large/checkpoints/pretrain.pth --rl runs/large_rl/checkpoints/rl.pth
+```
+
+Open http://127.0.0.1:8000. The Lightning app uses a separate CPU Studio,
+`queens-gambit-play`, so training shutdown does not stop the chess UI.
+`python -m lightningai.serve_chess` prepares the app and exposes port 8000;
+its verified URL is saved in ignored `lightningai/serving.json`. The models
+are read from the training Studio's shared teamspace filesystem. The API key
+stays in the local .env and is excluded from uploads. To stop hosting, stop
+`queens-gambit-play` in Lightning. Model availability depends on that hosting
+Studio running; this is a Studio-hosted app, not an autoscaling deployment.
